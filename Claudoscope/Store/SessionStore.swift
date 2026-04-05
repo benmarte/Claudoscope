@@ -93,6 +93,8 @@ final class SessionStore {
     }
 
     private let claudeDir: URL
+    // TODO: Task 8 — replace with active workspace from WorkspaceManager
+    private let defaultWorkspace: Workspace
     private let parser = SessionParser()
     private let cache = SessionCache()
     private var watcher: HarnessFileWatcher? // TODO: Task 8 — rewire watcher
@@ -151,17 +153,18 @@ final class SessionStore {
     init() {
         let home = FileManager.default.homeDirectoryForCurrentUser
         self.claudeDir = home.appendingPathComponent(".claude")
-        // TODO: Task 8 — rewire watcher via HarnessFileWatcher(workspace:)
-        self.plansService = PlansService(claudeDir: claudeDir)
-        self.timelineService = TimelineService(claudeDir: claudeDir)
         // TODO: Task 8 — pass active workspace from WorkspaceManager instead
-        let defaultWorkspace = Workspace(
+        let ws = Workspace(
             id: UUID(),
             name: "Claude Code",
             harnessType: .claudeCode,
             rootDir: "~/.claude"
         )
-        self.configService = ConfigService(workspace: defaultWorkspace)
+        self.defaultWorkspace = ws
+        // TODO: Task 8 — rewire watcher via HarnessFileWatcher(workspace:)
+        self.plansService = PlansService(workspace: ws)
+        self.timelineService = TimelineService(workspace: ws)
+        self.configService = ConfigService(workspace: ws)
 
         if UserDefaults.standard.object(forKey: "realtimeSecretScanEnabled") == nil {
             UserDefaults.standard.set(true, forKey: "realtimeSecretScanEnabled")
@@ -190,7 +193,7 @@ final class SessionStore {
     private func performInitialScan() {
         Task {
             let scanner = ProjectScanner(
-                claudeDir: claudeDir,
+                workspace: defaultWorkspace,
                 parser: parser,
                 pricingTable: pricingTable
             )
@@ -335,7 +338,7 @@ final class SessionStore {
     func rescanAllSessions() {
         Task {
             let scanner = ProjectScanner(
-                claudeDir: claudeDir,
+                workspace: defaultWorkspace,
                 parser: parser,
                 pricingTable: pricingTable
             )

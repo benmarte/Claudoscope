@@ -1,9 +1,10 @@
 import Foundation
 
-/// Scans ~/.claude/projects/ directories to discover projects and session files.
+/// Scans the workspace projects/ directory to discover projects and session files.
 /// Port of server/services/project-scanner.ts
 struct ProjectScanner {
-    let claudeDir: URL
+    let workspace: Workspace
+    var claudeDir: URL { workspace.rootDirURL }
     let parser: SessionParser
     let pricingTable: [String: ModelPricing]
 

@@ -1,11 +1,13 @@
 import Foundation
 
-/// Reads and parses ~/.claude/history.jsonl into HistoryEntry values.
+/// Reads and parses the workspace history.jsonl into HistoryEntry values.
 actor TimelineService {
-    private let historyFile: URL
+    let workspace: Workspace
+    var claudeDir: URL { workspace.rootDirURL }
+    private var historyFile: URL { claudeDir.appendingPathComponent("history.jsonl") }
 
-    init(claudeDir: URL = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".claude")) {
-        self.historyFile = claudeDir.appendingPathComponent("history.jsonl")
+    init(workspace: Workspace) {
+        self.workspace = workspace
     }
 
     /// Load history entries, optionally filtered by date and limited in count.

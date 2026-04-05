@@ -1,11 +1,13 @@
 import Foundation
 
-/// Scans ~/.claude/plans/ for markdown plan files and reads their content.
+/// Scans the workspace plans/ directory for markdown plan files and reads their content.
 actor PlansService {
-    private let plansDir: URL
+    let workspace: Workspace
+    var claudeDir: URL { workspace.rootDirURL }
+    private var plansDir: URL { claudeDir.appendingPathComponent("plans") }
 
-    init(claudeDir: URL = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".claude")) {
-        self.plansDir = claudeDir.appendingPathComponent("plans")
+    init(workspace: Workspace) {
+        self.workspace = workspace
     }
 
     /// Load all plan summaries, sorted by creation date descending.
