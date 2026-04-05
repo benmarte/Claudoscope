@@ -1,9 +1,10 @@
 import Foundation
 
-/// Reads Claude Code configuration data from ~/.claude/ filesystem.
+/// Reads LLM harness configuration data from the workspace root directory.
 /// Handles settings.json (hooks), claude.json (MCPs), commands, skills, and memory files.
 actor ConfigService {
-    let claudeDir: URL
+    let workspace: Workspace
+    var claudeDir: URL { workspace.rootDirURL }  // computed alias — extensions keep working unchanged
     let fm = FileManager.default
 
     /// Known hook event names in Claude Code.
@@ -16,8 +17,8 @@ actor ConfigService {
         "Notification"
     ]
 
-    init(claudeDir: URL = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".claude")) {
-        self.claudeDir = claudeDir
+    init(workspace: Workspace) {
+        self.workspace = workspace
     }
 
     // MARK: - JSON Reading

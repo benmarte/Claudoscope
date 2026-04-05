@@ -154,7 +154,14 @@ final class SessionStore {
         // TODO: Task 8 — rewire watcher via HarnessFileWatcher(workspace:)
         self.plansService = PlansService(claudeDir: claudeDir)
         self.timelineService = TimelineService(claudeDir: claudeDir)
-        self.configService = ConfigService(claudeDir: claudeDir)
+        // TODO: Task 8 — pass active workspace from WorkspaceManager instead
+        let defaultWorkspace = Workspace(
+            id: UUID(),
+            name: "Claude Code",
+            harnessType: .claudeCode,
+            rootDir: "~/.claude"
+        )
+        self.configService = ConfigService(workspace: defaultWorkspace)
 
         if UserDefaults.standard.object(forKey: "realtimeSecretScanEnabled") == nil {
             UserDefaults.standard.set(true, forKey: "realtimeSecretScanEnabled")

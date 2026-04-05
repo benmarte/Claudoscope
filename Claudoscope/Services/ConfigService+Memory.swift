@@ -6,34 +6,37 @@ extension ConfigService {
     func loadMemoryFiles(projectId: String?) -> [MemoryFile] {
         var files: [MemoryFile] = []
 
-        // 1. Global CLAUDE.md
-        files.append(makeMemoryFile(
-            id: "global",
-            label: "CLAUDE.md",
-            sublabel: "global",
-            url: claudeDir.appendingPathComponent("CLAUDE.md")
-        ))
-
-        // 2. Project CLAUDE.md
-        if let projectId, let decodedPath = decodeProjectPath(projectId) {
+        // 1. Global memory file (e.g. CLAUDE.md)
+        if let memFileName = workspace.capabilities.memoryFileName {
             files.append(makeMemoryFile(
-                id: "project",
-                label: "CLAUDE.md",
-                sublabel: "repo",
-                url: URL(fileURLWithPath: decodedPath).appendingPathComponent("CLAUDE.md")
+                id: "global",
+                label: memFileName,
+                sublabel: "global",
+                url: claudeDir.appendingPathComponent(memFileName)
             ))
         }
 
-        // 3. User's private per-project CLAUDE.md
-        if let projectId {
+        // 2. Project memory file
+        if let projectId, let decodedPath = decodeProjectPath(projectId),
+           let memFileName = workspace.capabilities.memoryFileName {
+            files.append(makeMemoryFile(
+                id: "project",
+                label: memFileName,
+                sublabel: "repo",
+                url: URL(fileURLWithPath: decodedPath).appendingPathComponent(memFileName)
+            ))
+        }
+
+        // 3. User's private per-project memory file
+        if let projectId, let memFileName = workspace.capabilities.memoryFileName {
             let projectDir = claudeDir
                 .appendingPathComponent("projects")
                 .appendingPathComponent(projectId)
             files.append(makeMemoryFile(
                 id: "user-project",
-                label: "CLAUDE.md",
+                label: memFileName,
                 sublabel: "private",
-                url: projectDir.appendingPathComponent("CLAUDE.md")
+                url: projectDir.appendingPathComponent(memFileName)
             ))
         }
 
@@ -125,10 +128,11 @@ extension ConfigService {
             }
         }
 
-        // Profile from ~/.claude.json
+        // Profile from ~/.claude.json — only available for harnesses that expose profile data
         let homeDir = FileManager.default.homeDirectoryForCurrentUser
         let profile: ClaudeProfile?
-        if let profileJson = readJSON(at: homeDir.appendingPathComponent(".claude.json")) {
+        if workspace.capabilities.hasProfileData,
+           let profileJson = readJSON(at: homeDir.appendingPathComponent(".claude.json")) {
             let email: String?
             if let oauth = profileJson["oauthAccount"] as? [String: Any],
                let rawEmail = oauth["email"] as? String {

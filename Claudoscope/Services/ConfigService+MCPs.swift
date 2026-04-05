@@ -10,11 +10,14 @@ extension ConfigService {
     func loadMcpServers(projectPath: String? = nil) -> [McpServerEntry] {
         var globalMerged: [String: [String: Any]] = [:]
 
-        // 1. ~/.claude/claude.json (primary source)
-        if let claudeJson = readJSON(at: claudeDir.appendingPathComponent("claude.json")),
-           let servers = claudeJson["mcpServers"] as? [String: [String: Any]] {
-            for (name, config) in servers {
-                globalMerged[name] = config
+        // 1. <rootDir>/<mcpConfigFileName> (primary source, e.g. claude.json)
+        if let mcpConfigFileName = workspace.capabilities.mcpConfigFileName {
+            let mcpConfigURL = claudeDir.appendingPathComponent(mcpConfigFileName)
+            if let claudeJson = readJSON(at: mcpConfigURL),
+               let servers = claudeJson["mcpServers"] as? [String: [String: Any]] {
+                for (name, config) in servers {
+                    globalMerged[name] = config
+                }
             }
         }
 
@@ -29,16 +32,19 @@ extension ConfigService {
         }
 
         // 3. ~/.claude.json (legacy, per-project MCPs under "projects.<path>.mcpServers")
-        let homeDotClaude = fm.homeDirectoryForCurrentUser.appendingPathComponent(".claude.json")
-        if let legacyJson = readJSON(at: homeDotClaude),
-           let projectsDict = legacyJson["projects"] as? [String: [String: Any]] {
-            for (projPath, projData) in projectsDict {
-                // If a project is selected, only include MCPs from that project
-                if let projectPath = projectPath, projPath != projectPath { continue }
-                guard let servers = projData["mcpServers"] as? [String: [String: Any]] else { continue }
-                for (name, config) in servers {
-                    if globalMerged[name] == nil {
-                        globalMerged[name] = config
+        // Only available for harnesses that expose profile data (e.g. Claude Code)
+        if workspace.capabilities.hasProfileData {
+            let homeDotClaude = fm.homeDirectoryForCurrentUser.appendingPathComponent(".claude.json")
+            if let legacyJson = readJSON(at: homeDotClaude),
+               let projectsDict = legacyJson["projects"] as? [String: [String: Any]] {
+                for (projPath, projData) in projectsDict {
+                    // If a project is selected, only include MCPs from that project
+                    if let projectPath = projectPath, projPath != projectPath { continue }
+                    guard let servers = projData["mcpServers"] as? [String: [String: Any]] else { continue }
+                    for (name, config) in servers {
+                        if globalMerged[name] == nil {
+                            globalMerged[name] = config
+                        }
                     }
                 }
             }
