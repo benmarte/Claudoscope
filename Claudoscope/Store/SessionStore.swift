@@ -107,6 +107,7 @@ final class SessionStore {
     private var timelineService: TimelineService?
     private var linterService: ConfigLinterService?
     private var cancellables = Set<AnyCancellable>()
+    private var reloadCancellables = Set<AnyCancellable>()
 
     var activeWorkspace: Workspace { workspaceManager.activeWorkspace }
 
@@ -189,16 +190,7 @@ final class SessionStore {
 
     private func reloadForWorkspace(_ workspace: Workspace) {
         watcher?.stop()
-        cancellables.removeAll(keepingCapacity: true)
-
-        // Re-subscribe to workspace switches after clearing cancellables
-        workspaceManager.$activeWorkspace
-            .dropFirst()
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] ws in
-                self?.reloadForWorkspace(ws)
-            }
-            .store(in: &cancellables)
+        reloadCancellables.removeAll(keepingCapacity: true)
 
         configService = ConfigService(workspace: workspace)
         plansService = workspace.capabilities.hasPlans
@@ -224,7 +216,7 @@ final class SessionStore {
                     await self.handleFileChange(change)
                 }
             }
-            .store(in: &cancellables)
+            .store(in: &reloadCancellables)
         newWatcher.start()
         watcher = newWatcher
 

@@ -95,6 +95,7 @@ private struct HookEventRow: View {
 struct HooksMainPanelView: View {
     let hookGroups: [HookEventGroup]
     let selectedEventId: String?
+    @Environment(SessionStore.self) private var store
 
     var body: some View {
         if let eventId = selectedEventId,
@@ -104,7 +105,7 @@ struct HooksMainPanelView: View {
             EmptyStateView(
                 icon: "arrow.triangle.turn.up.right.diamond",
                 title: "No hooks configured",
-                message: "Hooks are defined in ~/.claude/settings.json under the \"hooks\" key."
+                message: "Hooks are defined in \(store.activeWorkspace.rootDir)/settings.json under the \"hooks\" key."
             )
         } else {
             EmptyStateView(

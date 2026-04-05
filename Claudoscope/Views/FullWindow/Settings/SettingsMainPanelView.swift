@@ -12,8 +12,8 @@ struct SettingsMainPanelView: View {
     ]
 
     var settingsPath: String {
-        let home = FileManager.default.homeDirectoryForCurrentUser.path
-        return "\(home)/.claude/settings.json"
+        store.activeWorkspace.rootDirURL
+            .appendingPathComponent("settings.json").path
     }
 
     func shouldShow(_ sectionId: String) -> Bool {
@@ -104,7 +104,7 @@ struct SettingsMainPanelView: View {
                 Image(systemName: "info.circle")
                     .font(.system(size: 12))
                     .foregroundStyle(.secondary)
-                Text("Settings from ~/.claude/settings.json")
+                Text("Settings from \(settingsPath)")
                     .font(.system(size: 12))
                     .foregroundStyle(.secondary)
                 Spacer()

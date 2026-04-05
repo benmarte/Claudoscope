@@ -76,6 +76,7 @@ struct CommandRow: View {
 struct CommandsMainPanelView: View {
     let commands: [CommandEntry]
     @Binding var selectedCommandName: String?
+    @Environment(SessionStore.self) private var store
 
     private var selectedCommand: CommandEntry? {
         guard let name = selectedCommandName else { return nil }
@@ -89,7 +90,7 @@ struct CommandsMainPanelView: View {
             EmptyStateView(
                 icon: "terminal",
                 title: "No commands found",
-                message: "Custom slash commands are .md files in ~/.claude/commands/"
+                message: "Custom slash commands are .md files in \(store.activeWorkspace.rootDir)/commands/"
             )
         } else {
             EmptyStateView(

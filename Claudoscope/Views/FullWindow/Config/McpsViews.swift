@@ -92,6 +92,7 @@ struct McpServerRow: View {
 struct McpsMainPanelView: View {
     let mcpServers: [McpServerEntry]
     let selectedMcpName: String?
+    @Environment(SessionStore.self) private var store
 
     @State private var expandedServer: String?
 
@@ -100,7 +101,7 @@ struct McpsMainPanelView: View {
             EmptyStateView(
                 icon: "point.3.connected.trianglepath.dotted",
                 title: "No MCP servers",
-                message: "MCP servers are defined in ~/.claude/settings.json under the \"mcpServers\" key."
+                message: "MCP servers are defined in \(store.activeWorkspace.rootDir)/settings.json under the \"mcpServers\" key."
             )
         } else {
             ScrollView {

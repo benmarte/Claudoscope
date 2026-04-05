@@ -81,6 +81,7 @@ struct SkillRow: View {
 struct SkillsMainPanelView: View {
     let skills: [SkillEntry]
     @Binding var selectedSkillName: String?
+    @Environment(SessionStore.self) private var store
 
     private var selectedSkill: SkillEntry? {
         guard let name = selectedSkillName else { return nil }
@@ -94,7 +95,7 @@ struct SkillsMainPanelView: View {
             EmptyStateView(
                 icon: "star",
                 title: "No skills found",
-                message: "Skills are SKILL.md files in ~/.claude/skills/ or installed via plugins."
+                message: "Skills are SKILL.md files in \(store.activeWorkspace.rootDir)/skills/ or installed via plugins."
             )
         } else {
             EmptyStateView(
