@@ -95,7 +95,7 @@ final class SessionStore {
     private let claudeDir: URL
     private let parser = SessionParser()
     private let cache = SessionCache()
-    private let watcher: ClaudeFileWatcher
+    private var watcher: HarnessFileWatcher? // TODO: Task 8 — rewire watcher
     private let plansService: PlansService
     private let timelineService: TimelineService
     private let configService: ConfigService
@@ -151,7 +151,7 @@ final class SessionStore {
     init() {
         let home = FileManager.default.homeDirectoryForCurrentUser
         self.claudeDir = home.appendingPathComponent(".claude")
-        self.watcher = ClaudeFileWatcher(claudeDir: claudeDir)
+        // TODO: Task 8 — rewire watcher via HarnessFileWatcher(workspace:)
         self.plansService = PlansService(claudeDir: claudeDir)
         self.timelineService = TimelineService(claudeDir: claudeDir)
         self.configService = ConfigService(claudeDir: claudeDir)
@@ -165,6 +165,8 @@ final class SessionStore {
     }
 
     private func setupWatcher() {
+        // TODO: Task 8 — rewire watcher via HarnessFileWatcher(workspace:)
+        guard let watcher else { return }
         watcher.changes
             .receive(on: DispatchQueue.main)
             .sink { [weak self] change in

@@ -7,10 +7,10 @@ enum FileChange: Sendable {
     case configChanged(URL)
 }
 
-/// Watches ~/.claude/projects/ for file changes using FSEvents.
+/// Watches the harness root dir for file changes using FSEvents.
 /// Port of server/services/file-watcher.ts
-final class ClaudeFileWatcher: @unchecked Sendable {
-    private let claudeDir: URL
+final class HarnessFileWatcher: @unchecked Sendable {
+    private let rootDir: URL
     private var stream: FSEventStreamRef?
     private let subject = PassthroughSubject<FileChange, Never>()
     private var debounceTimers: [String: DispatchWorkItem] = [:]
@@ -22,12 +22,12 @@ final class ClaudeFileWatcher: @unchecked Sendable {
         subject.eraseToAnyPublisher()
     }
 
-    init(claudeDir: URL) {
-        self.claudeDir = claudeDir
+    init(workspace: Workspace) {
+        rootDir = workspace.rootDirURL
     }
 
     func start() {
-        let projectsDir = claudeDir.appendingPathComponent("projects").path
+        let projectsDir = rootDir.appendingPathComponent("projects").path
 
         var context = FSEventStreamContext()
         context.info = Unmanaged.passUnretained(self).toOpaque()
@@ -42,7 +42,7 @@ final class ClaudeFileWatcher: @unchecked Sendable {
             nil,
             { (_, info, numEvents, eventPaths, eventFlags, _) in
                 guard let info = info else { return }
-                let watcher = Unmanaged<ClaudeFileWatcher>.fromOpaque(info).takeUnretainedValue()
+                let watcher = Unmanaged<HarnessFileWatcher>.fromOpaque(info).takeUnretainedValue()
                 let paths = unsafeBitCast(eventPaths, to: NSArray.self)
 
                 for i in 0..<numEvents {
