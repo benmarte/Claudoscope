@@ -88,6 +88,11 @@ struct FullWindowView: View {
                 await store.loadMemoryFiles(projectId: selectedMemoryProjectId)
             }
         }
+        .task(id: store.pendingSettingsNavigation) {
+            guard store.pendingSettingsNavigation != nil else { return }
+            selectedRail = .settings
+            // Do NOT clear pendingSettingsNavigation here — let SettingsSidebarContent handle it
+        }
         .background {
             // Hidden button to capture Cmd+K globally
             Button("") { showCommandPalette = true }
