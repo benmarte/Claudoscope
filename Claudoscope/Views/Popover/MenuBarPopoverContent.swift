@@ -4,6 +4,7 @@ import SwiftUI
 struct MenuBarPopoverContent: View {
     @Environment(SessionStore.self) private var store
     @Environment(UpdateService.self) private var updateService
+    @EnvironmentObject var workspaceManager: WorkspaceManager
     @State private var showAbout = false
     @State private var showUpToDate = false
     @AppStorage("hasSeenRepositionTip") private var hasSeenTip = false
@@ -28,6 +29,39 @@ struct MenuBarPopoverContent: View {
             .padding(.horizontal, 16)
             .padding(.top, 12)
             .padding(.bottom, 8)
+
+            Divider()
+
+            // Workspace switcher
+            Menu {
+                ForEach(workspaceManager.workspaces) { ws in
+                    Button {
+                        _ = workspaceManager.activate(ws)
+                    } label: {
+                        if ws.id == workspaceManager.activeWorkspace.id {
+                            Label("\(ws.name) · \(ws.harnessType.displayName)", systemImage: "checkmark")
+                        } else {
+                            Text("\(ws.name) · \(ws.harnessType.displayName)")
+                        }
+                    }
+                }
+                Divider()
+                Button("Manage Workspaces") {
+                    store.pendingSettingsNavigation = .workspaces
+                    MainWindowController.shared.open(store: store, updateService: updateService)
+                }
+            } label: {
+                HStack(spacing: 4) {
+                    Text(workspaceManager.activeWorkspace.name)
+                        .font(.subheadline).fontWeight(.medium)
+                    Image(systemName: "chevron.up.chevron.down")
+                        .font(.caption2)
+                }
+            }
+            .menuStyle(.borderlessButton)
+            .fixedSize()
+            .padding(.horizontal, 16)
+            .padding(.vertical, 8)
 
             Divider()
 
