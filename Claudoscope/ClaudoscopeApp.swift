@@ -2,11 +2,15 @@ import SwiftUI
 
 @main
 struct ClaudoscopeApp: App {
+    @StateObject private var workspaceManager: WorkspaceManager
     @State private var store: SessionStore
     @State private var updateService: UpdateService
     @AppStorage("hasSeenOnboarding") private var hasSeenOnboarding = false
 
     init() {
+        let wm = WorkspaceManager()
+        _workspaceManager = StateObject(wrappedValue: wm)
+        // TODO: Task 8 — switch to SessionStore(workspaceManager:) once SessionStore is refactored
         let store = SessionStore()
         let updateService = UpdateService()
         _store = State(initialValue: store)
@@ -41,6 +45,7 @@ struct ClaudoscopeApp: App {
             MenuBarPopoverContent()
                 .environment(store)
                 .environment(updateService)
+                .environmentObject(workspaceManager)
                 .background {
                     UpdateTriggerView()
                         .environment(updateService)
