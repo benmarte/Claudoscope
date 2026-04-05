@@ -5,24 +5,40 @@ import SwiftUI
 struct SettingsSidebarContent: View {
     let filterText: String
     @Binding var selectedSection: String?
+    @Environment(SessionStore.self) private var sessionStore
 
-    private static let sections: [(id: String, icon: String, label: String)] = [
-        ("appearance", "paintbrush", "Appearance"),
-        ("model", "cpu", "Model"),
-        ("permissions", "shield", "Permissions"),
-        ("security", "lock.shield", "Security"),
-        ("attribution", "signature", "Attribution"),
-        ("plugins", "puzzlepiece", "Plugins"),
-        ("account", "person.crop.circle", "Account"),
-        ("general", "gear", "General"),
-        ("environment", "terminal", "Environment"),
-        ("pricing", "dollarsign.circle", "Pricing"),
-        ("updates", "arrow.triangle.2.circlepath", "Updates"),
-    ]
+    private var capabilities: HarnessCapabilities {
+        sessionStore.activeWorkspace.capabilities
+    }
+
+    // All possible sections; capability-gated ones carry a flag name
+    private var allSections: [(id: String, icon: String, label: String)] {
+        var result: [(id: String, icon: String, label: String)] = []
+        result.append(("appearance", "paintbrush", "Appearance"))
+        if capabilities.hasLinting {
+            result.append(("model", "cpu", "Model"))
+            result.append(("permissions", "shield", "Permissions"))
+        }
+        result.append(("security", "lock.shield", "Security"))
+        if capabilities.hasProfileData {
+            result.append(("attribution", "signature", "Attribution"))
+        }
+        if capabilities.mcpConfigFileName != nil {
+            result.append(("plugins", "puzzlepiece", "Plugins"))
+        }
+        result.append(("account", "person.crop.circle", "Account"))
+        result.append(("general", "gear", "General"))
+        if capabilities.hasLinting {
+            result.append(("environment", "terminal", "Environment"))
+        }
+        result.append(("pricing", "dollarsign.circle", "Pricing"))
+        result.append(("updates", "arrow.triangle.2.circlepath", "Updates"))
+        return result
+    }
 
     private var filteredSections: [(id: String, icon: String, label: String)] {
-        if filterText.isEmpty { return Self.sections }
-        return Self.sections.filter { $0.label.localizedCaseInsensitiveContains(filterText) }
+        if filterText.isEmpty { return allSections }
+        return allSections.filter { $0.label.localizedCaseInsensitiveContains(filterText) }
     }
 
     var body: some View {

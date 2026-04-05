@@ -2,14 +2,23 @@ import SwiftUI
 
 struct RailView: View {
     @Binding var selected: RailItem
+    @Environment(SessionStore.self) private var store
+
+    private var capabilities: HarnessCapabilities {
+        store.activeWorkspace.capabilities
+    }
 
     var body: some View {
         VStack(spacing: 4) {
-            // Primary items
-            ForEach(RailItem.primaryItems, id: \.self) { item in
-                RailButton(item: item, isSelected: selected == item) {
-                    selected = item
-                }
+            // Primary items — analytics and sessions always shown
+            RailButton(item: .analytics, isSelected: selected == .analytics) { selected = .analytics }
+            RailButton(item: .sessions,  isSelected: selected == .sessions)  { selected = .sessions  }
+            RailButton(item: .tools,     isSelected: selected == .tools)     { selected = .tools     }
+            if capabilities.hasPlans {
+                RailButton(item: .plans, isSelected: selected == .plans) { selected = .plans }
+            }
+            if capabilities.hasTimeline {
+                RailButton(item: .timeline, isSelected: selected == .timeline) { selected = .timeline }
             }
 
             Divider()
@@ -17,10 +26,15 @@ struct RailView: View {
                 .padding(.vertical, 4)
 
             // Config items
-            ForEach(RailItem.configItems, id: \.self) { item in
-                RailButton(item: item, isSelected: selected == item) {
-                    selected = item
-                }
+            RailButton(item: .hooks,    isSelected: selected == .hooks)    { selected = .hooks    }
+            RailButton(item: .commands, isSelected: selected == .commands) { selected = .commands }
+            RailButton(item: .mcps,     isSelected: selected == .mcps)     { selected = .mcps     }
+            RailButton(item: .skills,   isSelected: selected == .skills)   { selected = .skills   }
+            if capabilities.memoryFileName != nil {
+                RailButton(item: .memory, isSelected: selected == .memory) { selected = .memory }
+            }
+            if capabilities.hasLinting {
+                RailButton(item: .configHealth, isSelected: selected == .configHealth) { selected = .configHealth }
             }
 
             Spacer()
@@ -29,7 +43,7 @@ struct RailView: View {
                 .padding(.horizontal, 8)
                 .padding(.vertical, 4)
 
-            // Settings
+            // Settings — always shown
             RailButton(item: .settings, isSelected: selected == .settings) {
                 selected = .settings
             }
