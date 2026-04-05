@@ -47,8 +47,14 @@ struct MenuBarPopoverContent: View {
                 }
                 Divider()
                 Button("Manage Workspaces") {
-                    store.pendingSettingsNavigation = .workspaces
+                    // Open the window first, then set the navigation signal after a
+                    // brief delay so the SwiftUI view hierarchy (SettingsSidebarContent)
+                    // is fully attached and its .onChange can observe the change.
                     MainWindowController.shared.open(store: store, updateService: updateService)
+                    Task {
+                        try? await Task.sleep(nanoseconds: 150_000_000) // 0.15s
+                        store.pendingSettingsNavigation = .workspaces
+                    }
                 }
             } label: {
                 HStack(spacing: 4) {
