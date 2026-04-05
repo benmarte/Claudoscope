@@ -10,8 +10,7 @@ struct ClaudoscopeApp: App {
     init() {
         let wm = WorkspaceManager()
         _workspaceManager = StateObject(wrappedValue: wm)
-        // TODO: Task 8 — switch to SessionStore(workspaceManager:) once SessionStore is refactored
-        let store = SessionStore()
+        let store = SessionStore(workspaceManager: wm)
         let updateService = UpdateService()
         _store = State(initialValue: store)
         _updateService = State(initialValue: updateService)

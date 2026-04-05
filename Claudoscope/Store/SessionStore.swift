@@ -26,6 +26,7 @@ enum AppAppearance: String, CaseIterable {
 
 /// Central observable store for all session/project data.
 /// Owns the file watcher and Combine pipeline for reactive updates.
+@MainActor
 @Observable
 final class SessionStore {
     var projects: [Project] = []
@@ -92,17 +93,17 @@ final class SessionStore {
         PricingTables.table(provider: pricingProvider, region: pricingRegion)
     }
 
-    private let claudeDir: URL
-    // TODO: Task 8 — replace with active workspace from WorkspaceManager
-    private let defaultWorkspace: Workspace
+    private let workspaceManager: WorkspaceManager
     private let parser = SessionParser()
     private let cache = SessionCache()
-    private var watcher: HarnessFileWatcher? // TODO: Task 8 — rewire watcher
-    private let plansService: PlansService
-    private let timelineService: TimelineService
-    private let configService: ConfigService
-    private let linterService: ConfigLinterService
+    private var watcher: HarnessFileWatcher?
+    private var configService: ConfigService
+    private var plansService: PlansService?
+    private var timelineService: TimelineService?
+    private var linterService: ConfigLinterService?
     private var cancellables = Set<AnyCancellable>()
+
+    var activeWorkspace: Workspace { workspaceManager.activeWorkspace }
 
     /// All sessions flattened with their project
     var allSessionsWithProjects: [(session: SessionSummary, project: Project)] {
@@ -150,35 +151,67 @@ final class SessionStore {
         todaySessions.reduce(0.0) { $0 + $1.estimatedCost }
     }
 
-    init() {
-        let home = FileManager.default.homeDirectoryForCurrentUser
-        self.claudeDir = home.appendingPathComponent(".claude")
-        // TODO: Task 8 — pass active workspace from WorkspaceManager instead
-        let ws = Workspace(
-            id: UUID(),
-            name: "Claude Code",
-            harnessType: .claudeCode,
-            rootDir: "~/.claude"
-        )
-        self.defaultWorkspace = ws
-        // TODO: Task 8 — rewire watcher via HarnessFileWatcher(workspace:)
-        self.plansService = PlansService(workspace: ws)
-        self.timelineService = TimelineService(workspace: ws)
-        self.configService = ConfigService(workspace: ws)
-        self.linterService = ConfigLinterService(workspace: ws)
+    init(workspaceManager: WorkspaceManager) {
+        self.workspaceManager = workspaceManager
+
+        // Initialise services for the initial active workspace before subscriptions fire
+        let initialWorkspace = workspaceManager.activeWorkspace
+        self.configService = ConfigService(workspace: initialWorkspace)
+        self.plansService = initialWorkspace.capabilities.hasPlans
+            ? PlansService(workspace: initialWorkspace) : nil
+        self.timelineService = initialWorkspace.capabilities.hasTimeline
+            ? TimelineService(workspace: initialWorkspace) : nil
+        self.linterService = initialWorkspace.capabilities.hasLinting
+            ? ConfigLinterService(workspace: initialWorkspace) : nil
 
         if UserDefaults.standard.object(forKey: "realtimeSecretScanEnabled") == nil {
             UserDefaults.standard.set(true, forKey: "realtimeSecretScanEnabled")
         }
 
-        setupWatcher()
-        performInitialScan()
+        // Subscribe to workspace switches AFTER initial services are set up
+        workspaceManager.$activeWorkspace
+            .dropFirst()
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] workspace in
+                self?.reloadForWorkspace(workspace)
+            }
+            .store(in: &cancellables)
+
+        reloadForWorkspace(initialWorkspace)
     }
 
-    private func setupWatcher() {
-        // TODO: Task 8 — rewire watcher via HarnessFileWatcher(workspace:)
-        guard let watcher else { return }
-        watcher.changes
+    // MARK: - Workspace Reload
+
+    private func reloadForWorkspace(_ workspace: Workspace) {
+        watcher?.stop()
+        cancellables.removeAll(keepingCapacity: true)
+
+        // Re-subscribe to workspace switches after clearing cancellables
+        workspaceManager.$activeWorkspace
+            .dropFirst()
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] ws in
+                self?.reloadForWorkspace(ws)
+            }
+            .store(in: &cancellables)
+
+        configService = ConfigService(workspace: workspace)
+        plansService = workspace.capabilities.hasPlans
+            ? PlansService(workspace: workspace) : nil
+        timelineService = workspace.capabilities.hasTimeline
+            ? TimelineService(workspace: workspace) : nil
+        linterService = workspace.capabilities.hasLinting
+            ? ConfigLinterService(workspace: workspace) : nil
+
+        // Reset state for new workspace
+        projects = []
+        sessionsByProject = [:]
+        isLoading = true
+        lintResultsValid = false
+
+        // Set up file watcher
+        let newWatcher = HarnessFileWatcher(workspace: workspace)
+        newWatcher.changes
             .receive(on: DispatchQueue.main)
             .sink { [weak self] change in
                 guard let self else { return }
@@ -187,14 +220,17 @@ final class SessionStore {
                 }
             }
             .store(in: &cancellables)
+        newWatcher.start()
+        watcher = newWatcher
 
-        watcher.start()
+        // Perform initial scan for this workspace
+        performInitialScan(workspace: workspace)
     }
 
-    private func performInitialScan() {
+    private func performInitialScan(workspace: Workspace) {
         Task {
             let scanner = ProjectScanner(
-                workspace: defaultWorkspace,
+                workspace: workspace,
                 parser: parser,
                 pricingTable: pricingTable
             )
@@ -293,6 +329,7 @@ final class SessionStore {
 
     private func scanForRealtimeSecrets(url: URL, sessionId: String, projectId: String) async {
         guard realtimeSecretScanEnabled else { return }
+        guard let linterService else { return }
         guard let lines = Self.readTail(of: url) else { return }
 
         let findings = await linterService.scanLinesForSecrets(lines)
@@ -337,9 +374,10 @@ final class SessionStore {
 
     /// Re-scan all sessions with the current pricing table (e.g. after pricing provider change)
     func rescanAllSessions() {
+        let workspace = workspaceManager.activeWorkspace
         Task {
             let scanner = ProjectScanner(
-                workspace: defaultWorkspace,
+                workspace: workspace,
                 parser: parser,
                 pricingTable: pricingTable
             )
@@ -400,16 +438,17 @@ final class SessionStore {
             return
         }
 
+        let rootDirURL = workspaceManager.activeWorkspace.rootDirURL
         let fileURL: URL
         if let subagentFileName {
-            fileURL = claudeDir
+            fileURL = rootDirURL
                 .appendingPathComponent("projects")
                 .appendingPathComponent(projectId)
                 .appendingPathComponent(id)
                 .appendingPathComponent("subagents")
                 .appendingPathComponent(subagentFileName)
         } else {
-            fileURL = claudeDir
+            fileURL = rootDirURL
                 .appendingPathComponent("projects")
                 .appendingPathComponent(projectId)
                 .appendingPathComponent("\(id).jsonl")
@@ -449,6 +488,7 @@ final class SessionStore {
     // MARK: - Plans
 
     func loadPlans() async {
+        guard let plansService else { return }
         await MainActor.run { plansLoading = true }
         let loaded = await plansService.loadPlans()
         await MainActor.run {
@@ -458,6 +498,7 @@ final class SessionStore {
     }
 
     func loadPlanDetail(filename: String) async {
+        guard let plansService else { return }
         let detail = await plansService.loadPlanDetail(filename: filename)
         await MainActor.run {
             self.selectedPlanDetail = detail
@@ -467,6 +508,7 @@ final class SessionStore {
     // MARK: - Timeline
 
     func loadTimeline() async {
+        guard let timelineService else { return }
         await MainActor.run { timelineLoading = true }
         let sevenDaysAgo = Calendar.current.date(byAdding: .day, value: -7, to: Date())
         let loaded = await timelineService.loadEntries(since: sevenDaysAgo)
@@ -493,6 +535,7 @@ final class SessionStore {
     }
 
     func runConfigLint(projectId: String?) async {
+        guard let linterService else { return }
         await MainActor.run {
             lintLoading = true
             secretScanLoading = false
@@ -515,8 +558,10 @@ final class SessionStore {
             projectRoot = nil
         }
 
+        let rootDirURL = workspaceManager.activeWorkspace.rootDirURL
+
         // Phase 1 (fast): rules, skills, session health checks
-        var fastResults = await linterService.lint(projectRoot: projectRoot, globalClaudeDir: claudeDir)
+        var fastResults = await linterService.lint(projectRoot: projectRoot, globalClaudeDir: rootDirURL)
         let sessionResults = await linterService.lintSessions(sessions)
         fastResults.append(contentsOf: sessionResults)
         fastResults.sort { $0.severity < $1.severity }
@@ -532,7 +577,7 @@ final class SessionStore {
         }
 
         // Phase 2 (slow): secret scanning in background
-        let secretResults = await linterService.lintSessionSecrets(sessions, claudeDir: claudeDir)
+        let secretResults = await linterService.lintSessionSecrets(sessions, claudeDir: rootDirURL)
 
         await MainActor.run {
             var allResults = phase1Results
@@ -582,8 +627,8 @@ final class SessionStore {
 
     func loadSubagentTree(sessionId: String, projectId: String) async {
         let fm = FileManager.default
-        let subagentsDir = fm.homeDirectoryForCurrentUser
-            .appendingPathComponent(".claude/projects")
+        let subagentsDir = workspaceManager.activeWorkspace.rootDirURL
+            .appendingPathComponent("projects")
             .appendingPathComponent(projectId)
             .appendingPathComponent(sessionId)
             .appendingPathComponent("subagents")
@@ -626,8 +671,8 @@ final class SessionStore {
     }
 
     func hasSubagentFiles(sessionId: String, projectId: String) -> Bool {
-        let subagentsDir = FileManager.default.homeDirectoryForCurrentUser
-            .appendingPathComponent(".claude/projects")
+        let subagentsDir = workspaceManager.activeWorkspace.rootDirURL
+            .appendingPathComponent("projects")
             .appendingPathComponent(projectId)
             .appendingPathComponent(sessionId)
             .appendingPathComponent("subagents")

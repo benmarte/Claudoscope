@@ -21,6 +21,7 @@ final class MainWindowController {
         self.updateService = service
     }
 
+    @MainActor
     func open(store: SessionStore, updateService: UpdateService? = nil) {
         if let updateService { self.updateService = updateService }
 
