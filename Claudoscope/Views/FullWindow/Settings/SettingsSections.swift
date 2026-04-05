@@ -175,7 +175,7 @@ extension SettingsMainPanelView {
                 }
                 .padding(.vertical, 8)
             } else {
-                settingsEmptyHint("No permission overrides configured. Claude Code will prompt for each tool.")
+                settingsEmptyHint("No permission overrides configured. \(store.activeWorkspace.harnessType.displayName) will prompt for each tool.")
             }
         }
     }
@@ -312,6 +312,7 @@ extension SettingsMainPanelView {
                 CleanupPeriodRow(
                     currentDays: currentCleanup,
                     settingsPath: settingsPath,
+                    harnessName: store.activeWorkspace.harnessType.displayName,
                     onUpdated: { loadSettings() }
                 )
 
@@ -353,7 +354,7 @@ extension SettingsMainPanelView {
                     }
                 }
             } else {
-                settingsEmptyHint("No environment variables configured. Add an \"env\" key to settings.json to inject variables into Claude Code's shell.")
+                settingsEmptyHint("No environment variables configured. Add an \"env\" key to settings.json to inject variables into \(store.activeWorkspace.harnessType.displayName)'s shell.")
             }
         }
     }
@@ -623,37 +624,39 @@ extension SettingsMainPanelView {
 
     @ViewBuilder
     func accountSection() -> some View {
-        settingsSection(id: "account", icon: "person.crop.circle", title: "Account") {
-            if let profile = store.extendedConfig?.profile {
-                VStack(spacing: 0) {
-                    let rows = accountRows(profile)
-                    ForEach(Array(rows.enumerated()), id: \.offset) { index, row in
-                        if row.isBadge {
-                            HStack {
-                                Text(row.key)
-                                    .font(Typography.body)
-                                    .foregroundStyle(.tertiary)
-                                Spacer()
-                                Text(row.value)
-                                    .font(.system(size: 12, weight: .medium))
-                                    .padding(.horizontal, 8)
-                                    .padding(.vertical, 2)
-                                    .background(Color.accentColor.opacity(0.15))
-                                    .foregroundStyle(Color.accentColor)
-                                    .clipShape(RoundedRectangle(cornerRadius: 4))
+        if store.activeWorkspace.capabilities.hasProfileData {
+            settingsSection(id: "account", icon: "person.crop.circle", title: "Account") {
+                if let profile = store.extendedConfig?.profile {
+                    VStack(spacing: 0) {
+                        let rows = accountRows(profile)
+                        ForEach(Array(rows.enumerated()), id: \.offset) { index, row in
+                            if row.isBadge {
+                                HStack {
+                                    Text(row.key)
+                                        .font(Typography.body)
+                                        .foregroundStyle(.tertiary)
+                                    Spacer()
+                                    Text(row.value)
+                                        .font(.system(size: 12, weight: .medium))
+                                        .padding(.horizontal, 8)
+                                        .padding(.vertical, 2)
+                                        .background(Color.accentColor.opacity(0.15))
+                                        .foregroundStyle(Color.accentColor)
+                                        .clipShape(RoundedRectangle(cornerRadius: 4))
+                                }
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 6)
+                            } else {
+                                SettingsKeyValueRow(key: row.key, value: row.value, mono: row.mono)
                             }
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 6)
-                        } else {
-                            SettingsKeyValueRow(key: row.key, value: row.value, mono: row.mono)
-                        }
-                        if index < rows.count - 1 {
-                            Divider().padding(.horizontal, 12)
+                            if index < rows.count - 1 {
+                                Divider().padding(.horizontal, 12)
+                            }
                         }
                     }
+                } else {
+                    settingsEmptyHint("No account data found. ~/.claude.json may not exist yet.")
                 }
-            } else {
-                settingsEmptyHint("No account data found. ~/.claude.json may not exist yet.")
             }
         }
     }
@@ -709,6 +712,7 @@ extension SettingsMainPanelView {
 struct CleanupPeriodRow: View {
     let currentDays: Int?
     let settingsPath: String
+    let harnessName: String
     let onUpdated: () -> Void
 
     private var displayDays: Int { currentDays ?? 30 }
@@ -761,7 +765,7 @@ struct CleanupPeriodRow: View {
                 HStack(spacing: 4) {
                     Image(systemName: "info.circle")
                         .font(.system(size: 11))
-                    Text("Set to 1 year to keep session history longer. Claude Code defaults to 30 days.")
+                    Text("Set to 1 year to keep session history longer. \(harnessName) defaults to 30 days.")
                         .font(.system(size: 11))
                 }
                 .foregroundStyle(.orange)

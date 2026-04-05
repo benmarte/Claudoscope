@@ -97,6 +97,7 @@ struct MemoryProjectRow: View {
 struct MemoryMainPanelView: View {
     let memoryFiles: [MemoryFile]
     @Binding var selectedMemoryId: String?
+    @Environment(SessionStore.self) private var store
 
     private var selectedFile: MemoryFile? {
         guard let id = selectedMemoryId else { return nil }
@@ -216,7 +217,7 @@ struct MemoryMainPanelView: View {
                 EmptyStateView(
                     icon: "brain",
                     title: "No memory available",
-                    message: "This memory file doesn't exist yet. It will be created when Claude Code writes memory for this scope."
+                    message: "This memory file doesn't exist yet. It will be created when \(store.activeWorkspace.harnessType.displayName) writes memory for this scope."
                 )
             }
         }
