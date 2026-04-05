@@ -88,6 +88,7 @@ struct Workspace: Codable, Identifiable, Equatable {
         URL(fileURLWithPath: NSString(string: rootDir).expandingTildeInPath)
     }
 
+    // Equality is identity-only: two Workspaces are equal iff they share the same persisted UUID.
     static func == (lhs: Workspace, rhs: Workspace) -> Bool {
         lhs.id == rhs.id
     }

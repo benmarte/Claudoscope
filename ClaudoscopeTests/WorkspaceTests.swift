@@ -36,6 +36,7 @@ final class WorkspaceTests: XCTestCase {
         XCTAssertFalse(caps.hasLinting)
         XCTAssertFalse(caps.hasProfileData)
         XCTAssertNil(caps.mcpConfigFileName)
+        XCTAssertTrue(caps.hookEventNames.isEmpty)
     }
 
     func test_openCode_defaultCapabilities_areAllFalse() {
@@ -46,6 +47,7 @@ final class WorkspaceTests: XCTestCase {
         XCTAssertFalse(caps.hasLinting)
         XCTAssertFalse(caps.hasProfileData)
         XCTAssertNil(caps.mcpConfigFileName)
+        XCTAssertTrue(caps.hookEventNames.isEmpty)
     }
 
     func test_workspace_capabilitiesUsesHarnessDefaults_whenNoCustom() {
@@ -70,6 +72,11 @@ final class WorkspaceTests: XCTestCase {
         let ws = Workspace(id: UUID(), name: "Test", harnessType: .claudeCode, rootDir: "~/.claude")
         XCTAssertFalse(ws.rootDirURL.path.hasPrefix("~"))
         XCTAssertTrue(ws.rootDirURL.path.hasSuffix("/.claude"))
+    }
+
+    func test_workspace_rootDirURL_absolutePath_isUnchanged() {
+        let ws = Workspace(id: UUID(), name: "T", harnessType: .custom, rootDir: "/tmp/proj")
+        XCTAssertEqual(ws.rootDirURL.path, "/tmp/proj")
     }
 
     func test_workspace_isCodable() throws {
