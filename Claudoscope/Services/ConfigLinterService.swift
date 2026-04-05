@@ -2,7 +2,15 @@ import Foundation
 import Darwin
 
 actor ConfigLinterService {
+    let workspace: Workspace
+    var claudeDir: URL { workspace.rootDirURL }
+    var harness: String { workspace.harnessType.displayName }
+
     let fm = FileManager.default
+
+    init(workspace: Workspace) {
+        self.workspace = workspace
+    }
 
     // Session health check thresholds
     static let sesHighCostThreshold: Double = 25.0
@@ -44,7 +52,7 @@ actor ConfigLinterService {
 
         // Discover and lint rules
         if let root = projectRoot {
-            let rulesDir = URL(fileURLWithPath: root).appendingPathComponent(".claude/rules")
+            let rulesDir = claudeDir.appendingPathComponent("rules")
             results.append(contentsOf: lintRules(rulesDir: rulesDir, projectRoot: root))
         }
 
@@ -53,7 +61,7 @@ actor ConfigLinterService {
 
         // Project skills
         if let root = projectRoot {
-            let skillsDir = URL(fileURLWithPath: root).appendingPathComponent(".claude/skills")
+            let skillsDir = claudeDir.appendingPathComponent("skills")
             let (skillResults, descs) = lintSkills(skillsDir: skillsDir)
             results.append(contentsOf: skillResults)
             allSkillDescriptions.append(contentsOf: descs)

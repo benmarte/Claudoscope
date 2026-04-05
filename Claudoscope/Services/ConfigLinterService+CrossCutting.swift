@@ -7,17 +7,17 @@ extension ConfigLinterService {
     func crossCuttingChecks(projectRoot: String?, globalDir: URL, claudeMdFiles: [URL]) -> [LintResult] {
         var results: [LintResult] = []
 
-        // XCT003: no .claude/ directory at project root
+        // XCT003: no harness config directory at project root
         if let root = projectRoot {
-            let dotClaude = URL(fileURLWithPath: root).appendingPathComponent(".claude")
+            let harnessDir = workspace.rootDirURL
             var isDir: ObjCBool = false
-            if !(fm.fileExists(atPath: dotClaude.path, isDirectory: &isDir) && isDir.boolValue) {
+            if !(fm.fileExists(atPath: harnessDir.path, isDirectory: &isDir) && isDir.boolValue) {
                 results.append(LintResult(
                     severity: .info,
                     checkId: .XCT003,
                     filePath: root,
-                    message: "No .claude/ directory found at the project root. Consider adding one for rules, skills, and other config.",
-                    fix: "Create a .claude/ directory to organize rules, skills, and project-specific configuration.",
+                    message: "No \(harness) config directory found at the project root.",
+                    fix: "Create a config directory to organize rules, skills, and commands.",
                     displayPath: "Project config"
                 ))
             }
@@ -34,8 +34,8 @@ extension ConfigLinterService {
         }
 
         // Rules files (always loaded when matching)
-        if let root = projectRoot {
-            let rulesDir = URL(fileURLWithPath: root).appendingPathComponent(".claude/rules")
+        if projectRoot != nil {
+            let rulesDir = claudeDir.appendingPathComponent("rules")
             if let ruleFiles = try? fm.contentsOfDirectory(at: rulesDir, includingPropertiesForKeys: nil) {
                 for ruleFile in ruleFiles where ruleFile.pathExtension == "md" {
                     if let content = try? String(contentsOf: ruleFile, encoding: .utf8) {

@@ -5,10 +5,11 @@ extension ConfigLinterService {
     // MARK: - CLAUDE.md Discovery
 
     func discoverClaudeMdFiles(projectRoot: String?, globalDir: URL) -> [URL] {
+        let memFile = workspace.capabilities.memoryFileName ?? "CLAUDE.md"
         var files: [URL] = []
 
-        // Global CLAUDE.md
-        let globalClaudeMd = globalDir.appendingPathComponent("CLAUDE.md")
+        // Global memory file
+        let globalClaudeMd = globalDir.appendingPathComponent(memFile)
         if fm.fileExists(atPath: globalClaudeMd.path) {
             files.append(globalClaudeMd)
         }
@@ -17,25 +18,26 @@ extension ConfigLinterService {
 
         let rootURL = URL(fileURLWithPath: root)
 
-        // Project root CLAUDE.md
-        let rootClaudeMd = rootURL.appendingPathComponent("CLAUDE.md")
+        // Project root memory file
+        let rootClaudeMd = rootURL.appendingPathComponent(memFile)
         if fm.fileExists(atPath: rootClaudeMd.path) {
             files.append(rootClaudeMd)
         }
 
-        // .claude/CLAUDE.md
-        let dotClaudeMd = rootURL.appendingPathComponent(".claude/CLAUDE.md")
+        // harness dir memory file (e.g. .claude/CLAUDE.md)
+        let dotClaudeMd = claudeDir.appendingPathComponent(memFile)
         if fm.fileExists(atPath: dotClaudeMd.path) {
             files.append(dotClaudeMd)
         }
 
-        // Recursively find subdirectory CLAUDE.md files (depth limit 3, skip common dirs)
+        // Recursively find subdirectory memory files (depth limit 3, skip common dirs)
         files.append(contentsOf: findClaudeMdRecursive(in: rootURL, currentDepth: 0, maxDepth: 3, exclude: [rootClaudeMd.path, dotClaudeMd.path]))
 
         return files
     }
 
     func findClaudeMdRecursive(in directory: URL, currentDepth: Int, maxDepth: Int, exclude: [String]) -> [URL] {
+        let memFile = workspace.capabilities.memoryFileName ?? "CLAUDE.md"
         guard currentDepth < maxDepth else { return [] }
         var found: [URL] = []
 
@@ -50,10 +52,10 @@ extension ConfigLinterService {
             var isDir: ObjCBool = false
             guard fm.fileExists(atPath: entry.path, isDirectory: &isDir), isDir.boolValue else { continue }
 
-            // Skip .claude directory since we already check .claude/CLAUDE.md explicitly
-            if name == ".claude" { continue }
+            // Skip the harness config dir since we already check it explicitly
+            if name == claudeDir.lastPathComponent { continue }
 
-            let candidate = entry.appendingPathComponent("CLAUDE.md")
+            let candidate = entry.appendingPathComponent(memFile)
             if fm.fileExists(atPath: candidate.path) && !exclude.contains(candidate.path) {
                 found.append(candidate)
             }
@@ -67,6 +69,7 @@ extension ConfigLinterService {
     // MARK: - CLAUDE.md Linting
 
     func lintClaudeMd(_ fileURL: URL, projectRoot: String?, homeDir: String) -> [LintResult] {
+        let memFile = workspace.capabilities.memoryFileName ?? "instructions file"
         var results: [LintResult] = []
         let path = fileURL.path
         let display = makeDisplayPath(for: path, projectRoot: projectRoot, homeDir: homeDir)
@@ -84,8 +87,8 @@ extension ConfigLinterService {
                 severity: .warning,
                 checkId: .CMD001,
                 filePath: path,
-                message: "CLAUDE.md has \(lineCount) lines, exceeding 200. Large files may dilute instruction priority.",
-                fix: "Split into focused .claude/rules/ files with glob-scoped paths.",
+                message: "\(memFile) has \(lineCount) lines, exceeding 200. Large files may dilute instruction priority.",
+                fix: "Split into focused rules files with glob-scoped paths.",
                 displayPath: display
             ))
         }
@@ -93,12 +96,12 @@ extension ConfigLinterService {
         // CMD002: >100 lines without rules directory
         if lineCount > 100 {
             let parentDir = fileURL.deletingLastPathComponent()
-            // Check if there's a .claude/rules/ directory relative to where this CLAUDE.md lives
+            // Check if there's a rules/ directory relative to where this memory file lives
             let rulesDir: URL
-            if parentDir.lastPathComponent == ".claude" {
+            if parentDir.lastPathComponent == claudeDir.lastPathComponent {
                 rulesDir = parentDir.appendingPathComponent("rules")
             } else {
-                rulesDir = parentDir.appendingPathComponent(".claude/rules")
+                rulesDir = claudeDir.appendingPathComponent("rules")
             }
             var isDir: ObjCBool = false
             let hasRules = fm.fileExists(atPath: rulesDir.path, isDirectory: &isDir) && isDir.boolValue
@@ -107,8 +110,8 @@ extension ConfigLinterService {
                     severity: .info,
                     checkId: .CMD002,
                     filePath: path,
-                    message: "CLAUDE.md has \(lineCount) lines but no .claude/rules/ directory exists. Rules files let you scope instructions to specific file types.",
-                    fix: "Create .claude/rules/ and move file-type-specific instructions into scoped rule files.",
+                    message: "\(memFile) has \(lineCount) lines but no rules/ directory exists. Rules files let you scope instructions to specific file types.",
+                    fix: "Create a rules/ directory and move file-type-specific instructions into scoped rule files.",
                     displayPath: display
                 ))
             }
@@ -152,7 +155,7 @@ extension ConfigLinterService {
                 severity: .error,
                 checkId: .CMD006,
                 filePath: path,
-                message: "Unclosed code block detected (\(fenceCount) fence markers found, expected even count). This can cause Claude to misparse instructions.",
+                message: "Unclosed code block detected (\(fenceCount) fence markers found, expected even count). This can cause \(harness) to misparse instructions.",
                 fix: "Add a closing ``` fence to balance all code blocks.",
                 displayPath: display
             ))
@@ -164,7 +167,7 @@ extension ConfigLinterService {
     // MARK: - Commands Deprecation
 
     func checkCommandsDeprecation(projectRoot: String) -> [LintResult] {
-        let commandsDir = URL(fileURLWithPath: projectRoot).appendingPathComponent(".claude/commands")
+        let commandsDir = claudeDir.appendingPathComponent("commands")
         var isDir: ObjCBool = false
         if fm.fileExists(atPath: commandsDir.path, isDirectory: &isDir), isDir.boolValue {
             return [LintResult(

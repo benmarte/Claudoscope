@@ -101,7 +101,7 @@ final class SessionStore {
     private let plansService: PlansService
     private let timelineService: TimelineService
     private let configService: ConfigService
-    private let linterService = ConfigLinterService()
+    private let linterService: ConfigLinterService
     private var cancellables = Set<AnyCancellable>()
 
     /// All sessions flattened with their project
@@ -165,6 +165,7 @@ final class SessionStore {
         self.plansService = PlansService(workspace: ws)
         self.timelineService = TimelineService(workspace: ws)
         self.configService = ConfigService(workspace: ws)
+        self.linterService = ConfigLinterService(workspace: ws)
 
         if UserDefaults.standard.object(forKey: "realtimeSecretScanEnabled") == nil {
             UserDefaults.standard.set(true, forKey: "realtimeSecretScanEnabled")

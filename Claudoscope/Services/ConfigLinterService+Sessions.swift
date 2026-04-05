@@ -40,7 +40,9 @@ extension ConfigLinterService {
                     checkId: .SES001,
                     filePath: syntheticPath,
                     message: "Session cost $\(String(format: "%.2f", session.estimatedCost)). High-cost sessions often indicate context window saturation, where the model re-reads growing context on every turn, multiplying token spend." + statsTag,
-                    fix: "For similar tasks, break work into focused sessions. Use /compact proactively before reaching 60% context utilization.",
+                    fix: workspace.harnessType == .claudeCode
+                        ? "For similar tasks, break work into focused sessions. Use /compact proactively before reaching 60% context utilization."
+                        : "For similar tasks, break work into focused sessions. Begin a new session before reaching context limits.",
                     displayPath: displayTitle
                 ))
             } else if totalTokens > Self.sesHighTokenThreshold {
@@ -49,7 +51,9 @@ extension ConfigLinterService {
                     checkId: .SES003,
                     filePath: syntheticPath,
                     message: "Session consumed \(formatTokenCount(totalTokens)) tokens. High cumulative token counts signal repeated context re-reads across compaction cycles, increasing cost without proportional value." + statsTag,
-                    fix: "Start fresh sessions at natural boundaries (e.g., after finishing a feature). Periodic /compact reduces redundant context re-reads.",
+                    fix: workspace.harnessType == .claudeCode
+                        ? "Start fresh sessions at natural boundaries (e.g., after finishing a feature). Periodic /compact reduces redundant context re-reads."
+                        : "Start fresh sessions at natural boundaries (e.g., after finishing a feature). Begin a new session to reduce context size.",
                     displayPath: displayTitle
                 ))
             } else if session.compactionCount >= Self.sesHighCompactionThreshold {
@@ -57,8 +61,10 @@ extension ConfigLinterService {
                     severity: .warning,
                     checkId: .SES002,
                     filePath: syntheticPath,
-                    message: "Session hit \(session.compactionCount) compaction cycles. Frequent compaction means the context window filled repeatedly, causing Claude to lose earlier decisions and instructions." + statsTag,
-                    fix: "Break work into focused sessions at natural boundaries. Use /compact proactively before the context fills, or start a fresh session after each milestone.",
+                    message: "Session hit \(session.compactionCount) compaction cycles. Frequent compaction means the context window filled repeatedly, causing \(harness) to lose earlier decisions and instructions." + statsTag,
+                    fix: workspace.harnessType == .claudeCode
+                        ? "Break work into focused sessions at natural boundaries. Use /compact proactively before the context fills, or start a fresh session after each milestone."
+                        : "Break work into focused sessions at natural boundaries. Begin a new session after each milestone.",
                     displayPath: displayTitle
                 ))
             } else if let lastDate = parseDate(session.lastTimestamp),
@@ -69,8 +75,10 @@ extension ConfigLinterService {
                         severity: .info,
                         checkId: .SES004,
                         filePath: syntheticPath,
-                        message: "Session idle for \(daysSince) days with \(session.messageCount) messages. Resuming a stale session means Claude rebuilds context from a compressed summary, losing nuance from the original conversation." + statsTag,
-                        fix: "Start a fresh session rather than resuming. Use /clear or begin a new Claude Code instance for better results.",
+                        message: "Session idle for \(daysSince) days with \(session.messageCount) messages. Resuming a stale session means \(harness) rebuilds context from a compressed summary, losing nuance from the original conversation." + statsTag,
+                        fix: workspace.harnessType == .claudeCode
+                            ? "Start a fresh session rather than resuming. Use /clear or begin a new Claude Code instance for better results."
+                            : "Start a fresh session rather than resuming for better results.",
                         displayPath: displayTitle
                     ))
                 }
