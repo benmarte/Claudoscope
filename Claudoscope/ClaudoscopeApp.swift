@@ -16,6 +16,7 @@ struct ClaudoscopeApp: App {
         _updateService = State(initialValue: updateService)
 
         MainWindowController.shared.setUpdateService(updateService)
+        MainWindowController.shared.setWorkspaceManager(wm)
 
         store.onSecretAlert = { [weak store] alert in
             guard let store else { return }

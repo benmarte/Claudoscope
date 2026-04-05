@@ -26,6 +26,7 @@ struct SettingsSidebarContent: View {
         if capabilities.mcpConfigFileName != nil {
             result.append(("plugins", "puzzlepiece", "Plugins"))
         }
+        result.append(("workspaces", "rectangle.stack.badge.person.crop", "Workspaces"))
         result.append(("account", "person.crop.circle", "Account"))
         result.append(("general", "gear", "General"))
         if capabilities.hasLinting {

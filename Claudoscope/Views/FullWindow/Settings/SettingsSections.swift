@@ -705,6 +705,135 @@ extension SettingsMainPanelView {
             UpdatesSectionContent()
         }
     }
+
+    // MARK: - Workspaces Section
+
+    @ViewBuilder
+    func workspacesSection() -> some View {
+        settingsSection(id: "workspaces", icon: "rectangle.stack.badge.person.crop", title: "Workspaces") {
+            WorkspacesSettingsView()
+        }
+    }
+}
+
+// MARK: - Workspaces Settings View
+
+struct WorkspacesSettingsView: View {
+    @EnvironmentObject var workspaceManager: WorkspaceManager
+    @State private var isAdding = false
+    @State private var editingWorkspace: Workspace? = nil
+    @State private var activationError: String? = nil
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            ForEach(workspaceManager.workspaces) { ws in
+                HStack {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(ws.name).fontWeight(.medium)
+                        Text("\(ws.harnessType.displayName) · \(ws.rootDir)")
+                            .font(.caption).foregroundColor(.secondary)
+                    }
+                    Spacer()
+                    if ws.id == workspaceManager.activeWorkspace.id {
+                        Image(systemName: "checkmark.circle.fill").foregroundColor(.accentColor)
+                    } else {
+                        Button("Activate") {
+                            if !workspaceManager.activate(ws) {
+                                activationError = "Directory not found: \(ws.rootDir)"
+                            } else {
+                                activationError = nil
+                            }
+                        }.buttonStyle(.borderless)
+                    }
+                    Button { editingWorkspace = ws } label: {
+                        Image(systemName: "pencil")
+                    }.buttonStyle(.borderless)
+                    Button { workspaceManager.delete(ws) } label: {
+                        Image(systemName: "trash")
+                    }.buttonStyle(.borderless)
+                }
+                .padding(.vertical, 6)
+                .padding(.horizontal, 12)
+                Divider().padding(.horizontal, 12)
+            }
+            if let err = activationError {
+                Text(err).font(.caption).foregroundColor(.red).padding(.top, 4).padding(.horizontal, 12)
+            }
+            Button("Add Workspace") { isAdding = true }
+                .padding(.top, 8)
+                .padding(.horizontal, 12)
+                .padding(.bottom, 8)
+        }
+        .sheet(isPresented: $isAdding) {
+            WorkspaceEditSheet(workspace: nil) { workspaceManager.add($0) }
+        }
+        .sheet(item: $editingWorkspace) { ws in
+            WorkspaceEditSheet(workspace: ws) { workspaceManager.update($0) }
+        }
+    }
+}
+
+// MARK: - Workspace Edit Sheet
+
+struct WorkspaceEditSheet: View {
+    let workspace: Workspace?
+    let onSave: (Workspace) -> Void
+
+    @Environment(\.dismiss) private var dismiss
+    @State private var name: String
+    @State private var harnessType: HarnessType
+    @State private var rootDir: String
+    @State private var showFolderPicker = false
+
+    init(workspace: Workspace?, onSave: @escaping (Workspace) -> Void) {
+        self.workspace = workspace
+        self.onSave = onSave
+        _name = State(initialValue: workspace?.name ?? "")
+        _harnessType = State(initialValue: workspace?.harnessType ?? .claudeCode)
+        _rootDir = State(initialValue: workspace?.rootDir ?? HarnessType.claudeCode.defaultRootDir)
+    }
+
+    var body: some View {
+        VStack(spacing: 16) {
+            Form {
+                TextField("Name", text: $name)
+                Picker("Harness", selection: $harnessType) {
+                    ForEach(HarnessType.allCases) { type in
+                        Text(type.displayName).tag(type)
+                    }
+                }
+                .onChange(of: harnessType) { _, newType in
+                    let defaultDirs = HarnessType.allCases.map(\.defaultRootDir)
+                    if defaultDirs.contains(rootDir) {
+                        rootDir = newType.defaultRootDir
+                    }
+                }
+                HStack {
+                    TextField("Config directory", text: $rootDir)
+                    Button("Browse") { showFolderPicker = true }
+                }
+            }
+            HStack {
+                Button("Cancel") { dismiss() }
+                Button("Save") {
+                    onSave(Workspace(
+                        id: workspace?.id ?? UUID(),
+                        name: name,
+                        harnessType: harnessType,
+                        rootDir: rootDir
+                    ))
+                    dismiss()
+                }
+                .disabled(name.isEmpty || rootDir.isEmpty)
+                .keyboardShortcut(.return)
+            }
+        }
+        .padding()
+        .frame(minWidth: 400)
+        .fileImporter(isPresented: $showFolderPicker, allowedContentTypes: [.folder]) { result in
+            if let url = try? result.get() { rootDir = url.path }
+        }
+    }
 }
 
 // MARK: - Cleanup Period Row

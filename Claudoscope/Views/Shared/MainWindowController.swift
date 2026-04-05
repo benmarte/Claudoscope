@@ -16,9 +16,14 @@ final class MainWindowController {
     private var window: NSWindow?
 
     private var updateService: UpdateService?
+    private var workspaceManager: WorkspaceManager?
 
     func setUpdateService(_ service: UpdateService) {
         self.updateService = service
+    }
+
+    func setWorkspaceManager(_ manager: WorkspaceManager) {
+        self.workspaceManager = manager
     }
 
     @MainActor
@@ -35,9 +40,11 @@ final class MainWindowController {
             return
         }
 
+        let wm = self.workspaceManager ?? WorkspaceManager()
         let contentView = FullWindowView()
             .environment(store)
             .environment(self.updateService ?? UpdateService())
+            .environmentObject(wm)
             .frame(minWidth: 900, minHeight: 600)
 
         let hostingView = NSHostingView(rootView: contentView)
