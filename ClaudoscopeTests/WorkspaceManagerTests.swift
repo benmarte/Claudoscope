@@ -83,6 +83,33 @@ final class WorkspaceManagerTests: XCTestCase {
         XCTAssertEqual(mgr2.workspaces[1].name, "Persisted")
     }
 
+    func test_activate_returnsFalse_whenWorkspaceNotInList() {
+        let mgr = WorkspaceManager(defaults: defaults)
+        // Not added via mgr.add — not in the workspaces array
+        let ws = Workspace(id: UUID(), name: "Stranger", harnessType: .custom, rootDir: "/tmp")
+        XCTAssertFalse(mgr.activate(ws))
+    }
+
+    func test_delete_lastWorkspace_reseeds() {
+        let mgr = WorkspaceManager(defaults: defaults)
+        XCTAssertEqual(mgr.workspaces.count, 1)
+        let only = mgr.workspaces[0]
+        mgr.delete(only)
+        XCTAssertEqual(mgr.workspaces.count, 1, "Should have a seed workspace after deleting the last")
+        XCTAssertNotEqual(mgr.workspaces[0].id, only.id, "Seed should be a new workspace")
+        XCTAssertEqual(mgr.activeWorkspace.id, mgr.workspaces[0].id)
+    }
+
+    func test_keys_areConsistent_afterRoundTrip() {
+        let mgr = WorkspaceManager(defaults: defaults)
+        let ws = Workspace(id: UUID(), name: "Round", harnessType: .qwen, rootDir: "~/.qwen")
+        mgr.add(ws)
+        // Re-init from same defaults — must load what was persisted
+        let mgr2 = WorkspaceManager(defaults: defaults)
+        XCTAssertEqual(mgr2.workspaces.count, 2)
+        XCTAssertEqual(mgr2.workspaces[1].name, "Round")
+    }
+
     func test_migrate_convertsClaudeProfiles() {
         struct LegacyProfile: Codable { let id: UUID; let name: String; let path: String }
         let legacy = [LegacyProfile(id: UUID(), name: "Work", path: "~/.claude-work")]

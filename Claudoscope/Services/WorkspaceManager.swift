@@ -3,8 +3,8 @@ import Combine
 
 @MainActor
 final class WorkspaceManager: ObservableObject {
-    private let workspacesKey = "workspaces"
-    private let activeWorkspaceIdKey = "activeWorkspaceId"
+    private static let workspacesKey = "workspaces"
+    private static let activeWorkspaceIdKey = "activeWorkspaceId"
     private let defaults: UserDefaults
 
     @Published private(set) var workspaces: [Workspace] = []
@@ -24,7 +24,7 @@ final class WorkspaceManager: ObservableObject {
             Self.persist(items: [seed], defaults: defaults)
         } else {
             workspaces = loaded
-            let savedId = defaults.string(forKey: "activeWorkspaceId")
+            let savedId = defaults.string(forKey: Self.activeWorkspaceIdKey)
                 .flatMap { UUID(uuidString: $0) }
             activeWorkspace = loaded.first(where: { $0.id == savedId }) ?? loaded[0]
         }
@@ -32,11 +32,10 @@ final class WorkspaceManager: ObservableObject {
 
     @discardableResult
     func activate(_ workspace: Workspace) -> Bool {
-        guard FileManager.default.fileExists(atPath: workspace.rootDirURL.path) else {
-            return false
-        }
+        guard workspaces.contains(where: { $0.id == workspace.id }) else { return false }
+        guard FileManager.default.fileExists(atPath: workspace.rootDirURL.path) else { return false }
         activeWorkspace = workspace
-        defaults.set(workspace.id.uuidString, forKey: activeWorkspaceIdKey)
+        defaults.set(workspace.id.uuidString, forKey: Self.activeWorkspaceIdKey)
         return true
     }
 
@@ -54,9 +53,14 @@ final class WorkspaceManager: ObservableObject {
 
     func delete(_ workspace: Workspace) {
         workspaces.removeAll { $0.id == workspace.id }
-        if activeWorkspace.id == workspace.id, let first = workspaces.first {
-            activeWorkspace = first
-            defaults.set(first.id.uuidString, forKey: activeWorkspaceIdKey)
+        if workspaces.isEmpty {
+            let seed = Workspace(id: UUID(), name: "Default", harnessType: .claudeCode, rootDir: "~/.claude")
+            workspaces = [seed]
+            activeWorkspace = seed
+            defaults.set(seed.id.uuidString, forKey: Self.activeWorkspaceIdKey)
+        } else if activeWorkspace.id == workspace.id {
+            activeWorkspace = workspaces[0]
+            defaults.set(workspaces[0].id.uuidString, forKey: Self.activeWorkspaceIdKey)
         }
         persist(workspaces)
     }
@@ -69,11 +73,11 @@ final class WorkspaceManager: ObservableObject {
 
     private static func persist(items: [Workspace], defaults: UserDefaults) {
         guard let data = try? JSONEncoder().encode(items) else { return }
-        defaults.set(data, forKey: "workspaces")
+        defaults.set(data, forKey: Self.workspacesKey)
     }
 
     private static func load(from defaults: UserDefaults) -> [Workspace] {
-        guard let data = defaults.data(forKey: "workspaces"),
+        guard let data = defaults.data(forKey: Self.workspacesKey),
               let items = try? JSONDecoder().decode([Workspace].self, from: data)
         else { return [] }
         return items
@@ -81,7 +85,7 @@ final class WorkspaceManager: ObservableObject {
 
     private static func migrateIfNeeded(defaults: UserDefaults) {
         guard defaults.data(forKey: "claudeProfiles") != nil,
-              defaults.data(forKey: "workspaces") == nil else { return }
+              defaults.data(forKey: Self.workspacesKey) == nil else { return }
         struct LegacyProfile: Codable { let id: UUID; let name: String; let path: String }
         guard let data = defaults.data(forKey: "claudeProfiles"),
               let profiles = try? JSONDecoder().decode([LegacyProfile].self, from: data)
