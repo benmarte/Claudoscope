@@ -2,6 +2,10 @@ import AppKit
 import Foundation
 import Combine
 
+enum SettingsDestination: Equatable {
+    case workspaces
+}
+
 enum AppAppearance: String, CaseIterable {
     case system
     case light
@@ -39,6 +43,7 @@ final class SessionStore {
     var analyticsCustomTo: Date = Date()
     var isLoading: Bool = true
     var selectedSession: ParsedSession?
+    var pendingSettingsNavigation: SettingsDestination? = nil
 
     // Plans data
     var plans: [PlanSummary] = []

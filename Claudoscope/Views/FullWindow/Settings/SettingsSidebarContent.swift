@@ -71,5 +71,13 @@ struct SettingsSidebarContent: View {
             }
         }
         .padding(.vertical, 4)
+        .onChange(of: sessionStore.pendingSettingsNavigation) { _, destination in
+            guard let destination else { return }
+            switch destination {
+            case .workspaces:
+                selectedSection = "workspaces"
+            }
+            sessionStore.pendingSettingsNavigation = nil
+        }
     }
 }
